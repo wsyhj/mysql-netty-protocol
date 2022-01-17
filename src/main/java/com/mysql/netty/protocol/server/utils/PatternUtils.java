@@ -17,4 +17,5 @@ public class PatternUtils {
     public static Pattern SETTINGS_PATTERN = Pattern.compile("((?i)set)(\\s+)(\\w+)(\\s*)(=*)(\\s*)(\\w+)");
     public static Pattern SELECT_SETTINGS_PATTERN = Pattern.compile("@@((\\w+)((\\.)(\\w+))?)\\s*(((?i)AS)\\s(\\w+))?");
     public static Pattern SHOW_CREATE_TABLE_PATTERN = Pattern.compile("((?i)show)(\\s+)((?i)create)(\\s+)((?i)table)(\\s+)`(\\w+)`(\\s*)");
+    public static Pattern SHOW_PROCEDURE_PATTERN = Pattern.compile("((?i)show)(\\s+)((?i)procedure)(\\s+)((?i)status)(\\s+)(\\w+)(\\s*)");
 }

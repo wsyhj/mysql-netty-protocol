@@ -289,14 +289,15 @@ public class MySQLServer implements AutoCloseable {
                 || "SHOW COLLATION".equalsIgnoreCase(query)
                 || "SHOW CHARACTER SET".equalsIgnoreCase(query)
                 || "SHOW STATUS".equalsIgnoreCase(query)
-                || PatternUtils.DESC_TABLE_PATTERN.matcher(query).find();
+                || PatternUtils.DESC_TABLE_PATTERN.matcher(query).find()
+                || PatternUtils.SHOW_PROCEDURE_PATTERN.matcher(query).find();
     }
 
     private void handleOthersType(ChannelHandlerContext ctx, QueryCommandPacket packet) {
         int sequenceId = packet.getSequenceId();
         ConnectContext context = connectContextMap.get(ctx.channel().id());
 
-        ctx.write(new ColumnCountPacket(++sequenceId, 3));
+        ctx.write(new ColumnCountPacket(++sequenceId, 5));
         ctx.write(ColumnDefinitionPacket.builder()
                 .sequenceId(++sequenceId)
                 .catalog(context.getCurrentDatabase())
@@ -339,9 +340,37 @@ public class MySQLServer implements AutoCloseable {
                 .addFlags(ColumnFlag.NOT_NULL)
                 .decimals(5)
                 .build());
+        ctx.write(ColumnDefinitionPacket.builder()
+                .sequenceId(++sequenceId)
+                .catalog(context.getCurrentDatabase())
+                .schema("Comment")
+                //TODO 根据真实查询语句表信息填充
+                .table("")
+                .orgTable("")
+                .name("character_set_client")
+                .orgName("character_set_client")
+                .columnLength(Integer.MAX_VALUE)
+                .type(ColumnType.MYSQL_TYPE_STRING)
+                .addFlags(ColumnFlag.NOT_NULL)
+                .decimals(5)
+                .build());
+        ctx.write(ColumnDefinitionPacket.builder()
+                .sequenceId(++sequenceId)
+                .catalog(context.getCurrentDatabase())
+                .schema("Comment")
+                //TODO 根据真实查询语句表信息填充
+                .table("")
+                .orgTable("")
+                .name("Charset")
+                .orgName("Charset")
+                .columnLength(Integer.MAX_VALUE)
+                .type(ColumnType.MYSQL_TYPE_STRING)
+                .addFlags(ColumnFlag.NOT_NULL)
+                .decimals(5)
+                .build());
 
         ctx.write(new EofResponsePacket(++sequenceId, 0));
-        ctx.write(new ResultsetRowPacket(++sequenceId, context.getCurrentDatabase(), "olap", "olap engine"));
+        ctx.write(new ResultsetRowPacket(++sequenceId, context.getCurrentDatabase(), "olap", "olap engine", "utf8", "utf8"));
         ctx.writeAndFlush(new EofResponsePacket(++sequenceId, 0));
     }
 
@@ -513,9 +542,6 @@ public class MySQLServer implements AutoCloseable {
     }
 
     private void handleInitDB(ChannelHandlerContext ctx, UseDBCommandPacket packet) {
-        ConnectContext connectContext = connectContextMap.get(ctx.channel().id());
-        connectContext.setCurrentDatabase(packet.getDatabase());
-        connectContextMap.put(ctx.channel().id(), connectContext);
         int sequenceId = packet.getSequenceId();
         ctx.writeAndFlush(OkResponsePacket.builder()
                 .addStatusFlags(ServerStatusFlag.SESSION_STATE_CHANGED)
