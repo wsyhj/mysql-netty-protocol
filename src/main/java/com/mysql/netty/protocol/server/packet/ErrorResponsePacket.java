@@ -40,6 +40,13 @@ public class ErrorResponsePacket extends AbstractMySqlPacket implements MysqlSer
         this.message = message;
     }
 
+    public ErrorResponsePacket(int sequenceId, int errorNumber, String message) {
+        super(sequenceId);
+        this.errorNumber = errorNumber;
+        this.sqlState = "".getBytes();
+        this.message = message;
+    }
+
     public int getErrorNumber() {
         return errorNumber;
     }

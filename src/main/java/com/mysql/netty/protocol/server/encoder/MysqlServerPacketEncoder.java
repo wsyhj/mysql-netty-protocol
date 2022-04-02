@@ -156,7 +156,7 @@ public class MysqlServerPacketEncoder extends AbstractPacketEncoder<MysqlServerP
         buf.writeByte(0xff);
         buf.writeShortLE(response.getErrorNumber());
         if (capabilities.contains(CapabilityFlags.CLIENT_PROTOCOL_41)) {
-            buf.writeByte(23)
+            buf.writeByte(0x23)
                     .writeBytes(response.getSqlState());
         }
         buf.writeBytes(response.getMessage().getBytes());

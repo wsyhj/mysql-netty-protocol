@@ -43,8 +43,11 @@ public class MySQLServer implements AutoCloseable {
     }
 
     private boolean checkAuth(HandshakeResponsePacket response) {
-        //TODO 验证用户名和密码，可能需要用到公司的登录校验
-        //困难点：mysql的密码被mysql自己加密了，如何获取成为最大难题
+        //需要获取salt值，并与当前密码进行比对，
+        //可以参考mysql-connect-java里的Security.scramble411方法
+        //例：注意salt的具体值不是之前的1而是变成了\001
+        //Buffer buffer = new Buffer("\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\000".getBytes()) ;
+        //byte[] pwd = Security.scramble411("root",buffer.readString() , "UTF-8");
         return true;
     }
 
@@ -108,8 +111,10 @@ public class MySQLServer implements AutoCloseable {
         private byte[] salt = new byte[21];
 
         public ServerHandler() {
-            //最好使用全为1的
+            //前20位任意值，最后一位必须为0
+//            salt = new byte[]{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0};
             new Random().nextBytes(salt);
+            salt[20] = 0;
         }
 
         @Override
@@ -151,8 +156,7 @@ public class MySQLServer implements AutoCloseable {
                 handlePing(ctx, (PingCommandPacket) msg);
             } else {
                 System.out.println("can not analysis this message: " + msg);
-                ctx.writeAndFlush(new ErrorResponsePacket(1, -1,
-                        "".getBytes(), "can not analysis this command"));
+                ctx.writeAndFlush(new ErrorResponsePacket(1, -1, "can not analysis this command"));
             }
         }
 
@@ -170,8 +174,7 @@ public class MySQLServer implements AutoCloseable {
 
         boolean checkAuth = checkAuth(response);
         if (!checkAuth) {
-            ctx.writeAndFlush(new ErrorResponsePacket(1, -1,
-                    "".getBytes(), "the password is error"));
+            ctx.writeAndFlush(new ErrorResponsePacket(1, -1, "the password is error"));
             return;
         }
 
@@ -224,8 +227,7 @@ public class MySQLServer implements AutoCloseable {
             QueryResult queryResult = new QueryResult();
 
             if (!"0".equalsIgnoreCase(queryResult.getStatusCode())) {
-                ctx.writeAndFlush(new ErrorResponsePacket(sequenceId.incrementAndGet(), Integer.valueOf(queryResult.getStatusCode()),
-                        "".getBytes(), queryResult.getMessage()));
+                ctx.writeAndFlush(new ErrorResponsePacket(sequenceId.incrementAndGet(), Integer.valueOf(queryResult.getStatusCode()), queryResult.getMessage()));
                 return;
             }
 
@@ -277,20 +279,12 @@ public class MySQLServer implements AutoCloseable {
             ctx.writeAndFlush(new EofResponsePacket(sequenceId.incrementAndGet(), 0));
         } catch (Exception e) {
             System.out.println("jdbc query is error!" + e);
-            ctx.writeAndFlush(new ErrorResponsePacket(0, -1,
-                    "".getBytes(), ErrorMsgUtils.getErrorMsg(e)));
+            ctx.writeAndFlush(new ErrorResponsePacket(0, -1, ErrorMsgUtils.getErrorMsg(e)));
         }
     }
 
     private boolean isOthersType(String query) {
-        return "SELECT DATABASE()".equalsIgnoreCase(query) ||
-                query.toLowerCase().startsWith("show variables like")
-                || "SHOW ENGINES".equalsIgnoreCase(query)
-                || "SHOW COLLATION".equalsIgnoreCase(query)
-                || "SHOW CHARACTER SET".equalsIgnoreCase(query)
-                || "SHOW STATUS".equalsIgnoreCase(query)
-                || PatternUtils.DESC_TABLE_PATTERN.matcher(query).find()
-                || PatternUtils.SHOW_PROCEDURE_PATTERN.matcher(query).find();
+        return PatternUtils.SHOW_OTHER_PATTERN.matcher(query).find();
     }
 
     private void handleOthersType(ChannelHandlerContext ctx, QueryCommandPacket packet) {
